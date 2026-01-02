@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { SalesAgent } from "../agents/SalesAgent";
-
+import { validateSalesInput } from "./sales.validation";
 const router = Router();
 
 // test endpoint
@@ -16,7 +16,7 @@ router.get("/health", (req, res) => {
 router.post("/analyze", async (req, res) => {
   try {
     const inputData = req.body;
-
+validateSalesInput(inputData);
     const agent = new SalesAgent();
     const result = await agent.analyze(inputData);
 
