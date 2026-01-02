@@ -1,5 +1,6 @@
 // Firmos backend entry point
 import express from "express";
+import analyzeSalesRoute from "./routes/analyzeSales";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -9,7 +10,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/api", analyzeSalesRoute);
 const PORT = process.env.PORT || 4000;
 
 app.get("/", (req, res) => {
