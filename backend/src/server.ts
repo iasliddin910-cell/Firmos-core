@@ -3,13 +3,14 @@ import express from "express";
 import analyzeSalesRoute from "./routes/analyzeSales";
 import cors from "cors";
 import dotenv from "dotenv";
-
+import salesRoutes from "./routes/sales.routes";
 dotenv.config();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/api/sales", salesRoutes);
 app.use("/api", analyzeSalesRoute);
 const PORT = process.env.PORT || 4000;
 
