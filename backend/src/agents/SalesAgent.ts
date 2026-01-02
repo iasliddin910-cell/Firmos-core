@@ -1,52 +1,47 @@
-import { CompanyBrain, AgentSignal } from "../core/CompanyBrain";
+import { CompanyBrain } from "../core/CompanyBrain";
+import { calculateLoss } from "./sales/LossCalculator";
+import { calculateOpportunities } from "./sales/OpportunityCalculator";
 
 export type SalesContext = {
-  dailyOrders: number;
   cancelledOrders: number;
   unpaidOrders: number;
   avgOrderValue: number;
+  returningCustomersRate: number;
 };
 
 export class SalesAgent {
-  private brain: CompanyBrain;
-
-  constructor(brain: CompanyBrain) {
-    this.brain = brain;
-  }
+  constructor(private brain: CompanyBrain) {}
 
   analyze(context: SalesContext) {
-    const signals: AgentSignal[] = [];
+    const losses = calculateLoss({
+      cancelledOrders: context.cancelledOrders,
+      unpaidOrders: context.unpaidOrders,
+      avgOrderValue: context.avgOrderValue
+    });
 
-    if (context.cancelledOrders > 5) {
-      signals.push({
+    losses.forEach(loss => {
+      this.brain.receiveSignal({
         agent: "SalesAgent",
         type: "RISK",
-        message: "High number of cancelled orders",
-        impactScore: 8,
+        message: loss.reason,
+        impactScore: loss.riskScore,
         confidence: 0.7
       });
-    }
+    });
 
-    if (context.unpaidOrders > 3) {
-      signals.push({
-        agent: "SalesAgent",
-        type: "RISK",
-        message: "Multiple unpaid orders detected",
-        impactScore: 6,
-        confidence: 0.6
-      });
-    }
+    const opportunities = calculateOpportunities({
+      avgOrderValue: context.avgOrderValue,
+      returningCustomersRate: context.returningCustomersRate
+    });
 
-    if (context.avgOrderValue > 500) {
-      signals.push({
+    opportunities.forEach(op => {
+      this.brain.receiveSignal({
         agent: "SalesAgent",
         type: "OPPORTUNITY",
-        message: "High average order value — upsell potential",
-        impactScore: 7,
-        confidence: 0.8
+        message: op.explanation,
+        impactScore: Math.round(op.potentialGain / 100),
+        confidence: op.confidence
       });
-    }
-
-    signals.forEach(signal => this.brain.receiveSignal(signal));
+    });
   }
 }
