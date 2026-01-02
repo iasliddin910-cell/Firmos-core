@@ -1,47 +1,81 @@
-import { CompanyBrain } from "../core/CompanyBrain";
-import { calculateLoss } from "./sales/LossCalculator";
-import { calculateOpportunities } from "./sales/OpportunityCalculator";
+import {
+  simulatePriceChange,
+  SimulationInput,
+  SimulationResult
+} from "./SimulationEngine";
 
-export type SalesContext = {
-  cancelledOrders: number;
-  unpaidOrders: number;
-  avgOrderValue: number;
-  returningCustomersRate: number;
+import { calculateLoss } from "./LossCalculator";
+import { calculateOpportunity } from "./OpportunityCalculator";
+
+export type SalesSignal = {
+  type: "LOSS" | "OPPORTUNITY" | "SIMULATION";
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  title: string;
+  details: string;
+  data?: any;
 };
 
 export class SalesAgent {
-  constructor(private brain: CompanyBrain) {}
+  analyze(data: {
+    avgOrderValue: number;
+    monthlyOrders: number;
+    cancelRate: number;
+  }): SalesSignal[] {
+    const signals: SalesSignal[] = [];
 
-  analyze(context: SalesContext) {
-    const losses = calculateLoss({
-      cancelledOrders: context.cancelledOrders,
-      unpaidOrders: context.unpaidOrders,
-      avgOrderValue: context.avgOrderValue
-    });
+    // 1️⃣ Yo‘qotilgan foyda
+    const loss = calculateLoss(
+      data.avgOrderValue,
+      data.monthlyOrders,
+      data.cancelRate
+    );
 
-    losses.forEach(loss => {
-      this.brain.receiveSignal({
-        agent: "SalesAgent",
-        type: "RISK",
-        message: loss.reason,
-        impactScore: loss.riskScore,
-        confidence: 0.7
+    if (loss.amount > 0) {
+      signals.push({
+        type: "LOSS",
+        severity: loss.severity,
+        title: "Yo‘qotilgan foyda aniqlandi",
+        details: `Bekor qilish sababli taxminiy yo‘qotish: ${loss.amount}`,
+        data: loss
       });
-    });
+    }
 
-    const opportunities = calculateOpportunities({
-      avgOrderValue: context.avgOrderValue,
-      returningCustomersRate: context.returningCustomersRate
-    });
+    // 2️⃣ Yangi imkoniyat
+    const opportunity = calculateOpportunity(
+      data.avgOrderValue,
+      data.monthlyOrders
+    );
 
-    opportunities.forEach(op => {
-      this.brain.receiveSignal({
-        agent: "SalesAgent",
+    if (opportunity.amount > 0) {
+      signals.push({
         type: "OPPORTUNITY",
-        message: op.explanation,
-        impactScore: Math.round(op.potentialGain / 100),
-        confidence: op.confidence
+        severity: opportunity.severity,
+        title: "Daromad oshirish imkoniyati",
+        details: `Potensial qo‘shimcha foyda: ${opportunity.amount}`,
+        data: opportunity
       });
+    }
+
+    // 3️⃣ SIMULYATSIYA (qarordan oldin)
+    const simulationInput: SimulationInput = {
+      currentAvgOrderValue: data.avgOrderValue,
+      monthlyOrders: data.monthlyOrders,
+      priceChangePercent: 5
+    };
+
+    const simulation: SimulationResult =
+      simulatePriceChange(simulationInput);
+
+    signals.push({
+      type: "SIMULATION",
+      severity: simulation.riskLevel,
+      title: "Narx o‘zgarishi simulyatsiyasi",
+      details: `Agar narx +5% bo‘lsa: ${
+        simulation.revenueChange > 0 ? "+" : ""
+      }${simulation.revenueChange}`,
+      data: simulation
     });
+
+    return signals;
   }
 }
